@@ -108,10 +108,10 @@ class CryoCARE(CARE):
                                      n_tiles=n_tiles)
 
     def _crop(self, data):
-        div_by = self._axes_div_by('XYZ')
+        div_by = self._axes_div_by('XY')
         data_shape = data.shape
         slices = ()
-        for i in range(3):
+        for i in range(2):
             if data_shape[i] % div_by[i] == 0:
                 slices += (slice(None),)
             else:
@@ -211,7 +211,7 @@ class CryoCARE(CARE):
         while not done:
             try:
                 # raise tf.errors.ResourceExhaustedError(None,None,None) # tmp
-                pred = predict_tiled(self.keras_model, even, odd, output, [4 * (slice(None),)], 4 * (slice(None),),
+                pred = predict_tiled(self.keras_model, even, odd, output, [3 * (slice(None),)], 3 * (slice(None),),
                                      mean=mean, std=std,
                                      axes_in=net_axes_in, axes_out=net_axes_out,
                                      n_tiles=n_tiles, block_sizes=net_axes_in_div_by,

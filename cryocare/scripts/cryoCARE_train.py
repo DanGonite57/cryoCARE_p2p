@@ -23,7 +23,7 @@ def main():
     dm.load(config['train_data'])
 
     net_conf = Config(
-        axes='ZYXC',
+        axes='YXC',
         train_loss='mse',
         train_epochs=config['epochs'],
         train_steps_per_epoch=config['steps_per_epoch'],

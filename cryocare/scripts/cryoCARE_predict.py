@@ -80,10 +80,10 @@ def denoise(config: dict, mean: float, std: float, even: str, odd: str, output_f
     odd_vol.shape += (1,)
     denoised.shape += (1,)
 
-    model.predict(even_vol, odd_vol, denoised, axes='ZYXC', normalizer=None, mean=mean, std=std,
+    model.predict(even_vol, odd_vol, denoised, axes='YXC', normalizer=None, mean=mean, std=std,
                   n_tiles=config['n_tiles'] + [1, ])
 
-    denoised = denoised[slice(0, shape_before_pad[0]), slice(0, shape_before_pad[1]), slice(0, shape_before_pad[2])]
+    denoised = denoised[slice(0, shape_before_pad[0]), slice(0, shape_before_pad[1])]
     mrc = mrcfile.new_mmap(output_file, denoised.shape, mrc_mode=2, overwrite=True)
     mrc.data[:] = denoised
 

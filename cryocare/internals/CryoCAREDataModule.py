@@ -18,8 +18,8 @@ class CryoCARE_Dataset(tf.keras.utils.Sequence):
         self.tilt_axis = tilt_axis
 
         if self.tilt_axis is not None:
-            tilt_axis_index = ["Z", "Y", "X"].index(self.tilt_axis)
-            rot_axes = [0, 1, 2]
+            tilt_axis_index = ["Y", "X"].index(self.tilt_axis)
+            rot_axes = [0, 1]
             rot_axes.remove(tilt_axis_index)
             self.rot_axes = tuple(rot_axes)
         else:
@@ -130,11 +130,9 @@ class CryoCARE_Dataset(tf.keras.utils.Sequence):
         
         assert even.data.shape[0] > 2 * self.sample_shape[0]
         assert even.data.shape[1] > 2 * self.sample_shape[1]
-        assert even.data.shape[2] > 2 * self.sample_shape[2]
 
         coords = self.create_random_coords(extraction_shape[0],
                                            extraction_shape[1],
-                                           extraction_shape[2],
                                            mask,
                                            n_samples=self.n_samples_per_tomo)
 
@@ -143,12 +141,12 @@ class CryoCARE_Dataset(tf.keras.utils.Sequence):
 
         return coords
 
-    def create_random_coords(self, z, y, x, mask, n_samples):
+    def create_random_coords(self, y, x, mask, n_samples):
         # Inspired by isonet preprocessing.cubes:create_cube_seeds()
         
         # Get permissible locations based on extraction_shape and sample_shape
-        slices = tuple([slice(z[0],z[1]-self.sample_shape[2]),
-                       slice(y[0],y[1]-self.sample_shape[1]),
+
+        slices = tuple([slice(y[0],y[1]-self.sample_shape[1]),
                        slice(x[0],x[1]-self.sample_shape[0])])
         
         # Get intersect with mask-allowed values                       
@@ -163,16 +161,17 @@ class CryoCARE_Dataset(tf.keras.utils.Sequence):
         rand_inds = [v[sample_inds] for v in valid_inds]
         
 
-        return np.stack([rand_inds[0],rand_inds[1], rand_inds[2]], -1)
+        return np.stack([rand_inds[0],rand_inds[1]], -1)
 
     def augment(self, x, y):
-        if self.tilt_axis is not None:
-            if self.sample_shape[0] == self.sample_shape[1] and \
-                    self.sample_shape[0] == self.sample_shape[2]:
-                rot_k = np.random.randint(0, 4, 1)
+        # if self.tilt_axis is not None:
+        #     # if self.sample_shape[0] == self.sample_shape[1] and \
+        #     #         self.sample_shape[0] == self.sample_shape[2]:
+        #     if self.sample_shape[0] == self.sample_shape[1]:
+        #         rot_k = np.random.randint(0, 4, 1)
 
-                x[...,0] = np.rot90(x[...,0], k=rot_k, axes=self.rot_axes)
-                y[...,0] = np.rot90(y[...,0], k=rot_k, axes=self.rot_axes)
+        #         x[...,0] = np.rot90(x[...,0], k=rot_k, axes=self.rot_axes)
+        #         y[...,0] = np.rot90(y[...,0], k=rot_k, axes=self.rot_axes)
 
 
         if np.random.rand() > 0.5:
@@ -185,15 +184,13 @@ class CryoCARE_Dataset(tf.keras.utils.Sequence):
 
     def __getitem__(self, idx):
         tomo_index, coord_index = idx // self.n_samples_per_tomo, idx % self.n_samples_per_tomo
-        z, y, x = self.coords[tomo_index][coord_index]
+        y, x = self.coords[tomo_index][coord_index]
 
-        even_subvolume = self.tomos_even[tomo_index].data[z:z + self.sample_shape[0],
-                         y:y + self.sample_shape[1],
-                         x:x + self.sample_shape[2]]
+        even_subvolume = self.tomos_even[tomo_index].data[y:y + self.sample_shape[0],
+                         x:x + self.sample_shape[1]]
 
-        odd_subvolume = self.tomos_odd[tomo_index].data[z:z + self.sample_shape[0],
-                        y:y + self.sample_shape[1],
-                        x:x + self.sample_shape[2]]
+        odd_subvolume = self.tomos_odd[tomo_index].data[y:y + self.sample_shape[0],
+                        x:x + self.sample_shape[1]]
         return self.augment(np.array(even_subvolume)[..., np.newaxis], np.array(odd_subvolume)[..., np.newaxis])
 
     def __iter__(self):
@@ -221,7 +218,7 @@ class CryoCARE_DataModule(object):
         train_extraction_shapes = []
         val_extraction_shapes = []
         for e, o in zip(tomo_paths_even, tomo_paths_odd):
-            tes, ves = self.__compute_extraction_shapes__(e, o, tilt_axis_index=['Z', 'Y', 'X'].index(tilt_axis),
+            tes, ves = self.__compute_extraction_shapes__(e, o, tilt_axis_index=['Y', 'X'].index(tilt_axis),
                                                           sample_shape=sample_shape,
                                                           validation_fraction=validation_fraction)
             train_extraction_shapes.append(tes)
@@ -266,14 +263,13 @@ class CryoCARE_DataModule(object):
                                                                                                      odd_path)
         assert even.data.shape[0] > 2 * sample_shape[0]
         assert even.data.shape[1] > 2 * sample_shape[1]
-        assert even.data.shape[2] > 2 * sample_shape[2]
 
         val_cut_off = int(even.data.shape[tilt_axis_index] * (1 - validation_fraction)) - 1
         if ((even.data.shape[tilt_axis_index] - val_cut_off) < sample_shape[tilt_axis_index]) or val_cut_off < sample_shape[tilt_axis_index]:
             val_cut_off = even.data.shape[tilt_axis_index] - sample_shape[tilt_axis_index] - 1
 
-        extraction_shape_train = [[0, even.data.shape[0]], [0, even.data.shape[1]], [0, even.data.shape[2]]]
-        extraction_shape_val = [[0, even.data.shape[0]], [0, even.data.shape[1]], [0, even.data.shape[2]]]
+        extraction_shape_train = [[0, even.data.shape[0]], [0, even.data.shape[1]]]
+        extraction_shape_val = [[0, even.data.shape[0]], [0, even.data.shape[1]]]
         extraction_shape_train[tilt_axis_index] = [0, val_cut_off]
         extraction_shape_val[tilt_axis_index] = [val_cut_off, even.data.shape[tilt_axis_index]]
 
